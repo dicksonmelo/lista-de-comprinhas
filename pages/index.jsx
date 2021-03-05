@@ -6,6 +6,8 @@ import Head from "next/head";
 const App = () => {
   const [items, setItems] = useState([]);
   const [value, setValue] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [newValue, setNewValue] = useState("");
 
   function idGen() {
     return Math.random() * 10000;
@@ -30,7 +32,7 @@ const App = () => {
         ? { ...item, isCompleted: !item.isCompleted }
         : item;
     });
-
+    setIsEditing(false);
     setItems(checkedItems);
   };
 
@@ -47,6 +49,18 @@ const App = () => {
     setItems(newItems);
   };
 
+  const updateItem = (itemID) => {
+    const updatedItems = items.map((item) => {
+      return item.id === itemID ? { ...item, name: newValue } : item;
+    });
+    setItems(updatedItems);
+    console.log(items);
+  };
+
+  const handleEditing = (id) => {
+    setIsEditing(!isEditing);
+  };
+
   return (
     <div className="container">
       {items.length === 0 ? (
@@ -54,7 +68,9 @@ const App = () => {
           <title>Nenhum item adicionado</title>
         </Head>
       ) : items.length === 1 ? (
-        <Head><title>1 item</title></Head>
+        <Head>
+          <title>1 item</title>
+        </Head>
       ) : (
         <Head>
           <title>{items.length} itens</title>
@@ -65,6 +81,7 @@ const App = () => {
       <input
         type="text"
         value={value}
+        className="item-input"
         onKeyPress={(e) => e.key === "Enter" && handleAddItem()}
         onChange={(e) => setValue(e.target.value)}
         placeholder="Não esqueça dos legumes..."
@@ -91,7 +108,7 @@ const App = () => {
               </button>
 
               {item.isCompleted === false ? (
-                <p>{item.name}</p>
+                <p onClick={() => handleEditing(item.id)}>{item.name}</p>
               ) : (
                 <p className="complete">{item.name}</p>
               )}
@@ -100,6 +117,15 @@ const App = () => {
               style={{ cursor: "pointer" }}
               onClick={() => deleteItem(item.id)}
             />
+            {isEditing === true && (
+              <input
+                className="newInput"
+                onKeyPress={(e) => e.key === "Enter" && updateItem(item.id)}
+                onChange={(e) => setNewValue(e.target.value)}
+                type="text"
+                placeholder="Novo nome"
+              />
+            )}
           </div>
         ))}
       </div>
