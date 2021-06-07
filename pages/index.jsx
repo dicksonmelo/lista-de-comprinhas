@@ -1,177 +1,263 @@
-import React, { useState } from "react";
-import { FaItunesNote, FaTrash } from "react-icons/fa";
+import React, { useReducer } from "react";
+import { FaTrash } from "react-icons/fa";
 import { AiOutlineCheckCircle, AiFillCheckCircle } from "react-icons/ai";
 import Head from "next/head";
+import { nanoid } from "nanoid";
+
+const initialAppState = {
+  items: [],
+  editingItem: null,
+  markedIds: [],
+  value: ""
+};
+
+function upsertItem(currentItems, itemToBeUpserted) {
+  if (!currentItems.find((item) => item.id === itemToBeUpserted.id)) {
+    return [itemToBeUpserted, ...currentItems];
+  }
+
+  return currentItems.map((item) =>
+    item.id === itemToBeUpserted.id ? itemToBeUpserted : item
+  );
+}
+
+function appReducer(currentState, event) {
+  switch (event.type) {
+    case "VALUE_CHANGED": {
+      return {
+        ...currentState,
+        value: event.value
+      };
+    }
+
+    case "CLICKED_CHECKBOX": {
+      return {
+        ...currentState,
+        markedIds: currentState.markedIds.includes(event.item.id)
+          ? currentState.markedIds.filter(
+              (markedId) => markedId !== event.item.id
+            )
+          : [...currentState.markedIds, event.item.id]
+      };
+    }
+
+    case "CLICKED_ITEM": {
+      if (currentState.editingItem?.id === event.item.id) {
+        return {
+          ...currentState,
+          editingItem: null,
+          value: ""
+        };
+      }
+
+      return {
+        ...currentState,
+        editingItem: event.item,
+        value: event.item.name
+      };
+    }
+
+    case "SUBMITTED_FORM": {
+      if (currentState.editingItem) {
+        return {
+          ...currentState,
+          // currentState.items.map((item) =>
+          //   item.id === currentState.editingItem.id
+          //     ? {
+          //         ...item,
+          //         name: currentState.value
+          //       }
+          //     : item
+          // ),
+          items: upsertItem(currentState.items, {
+            ...currentState.editingItem,
+            name: currentState.value
+          }),
+          editingItem: null,
+          value: ""
+        };
+      }
+
+      return {
+        ...currentState,
+        // items: [
+        //   {
+        //     id: nanoid(),
+        //     name: currentState.value,
+        //     isCompleted: false
+        //   },
+        //   ...currentState.items
+        // ],
+        items: upsertItem(currentState.items, {
+          id: nanoid(),
+          name: currentState.value,
+          isCompleted: false
+        }),
+        value: ""
+      };
+    }
+
+    case "CLICKED_DELETE_ALL_BUTTON": {
+      const editingItemDeleted = currentState.markedIds.includes(
+        currentState.editingItem?.id
+      );
+
+      return {
+        ...currentState,
+        items: currentState.items.filter(
+          (item) => !currentState.markedIds.includes(item.id)
+        ),
+        markedIds: [],
+        editingItem: editingItemDeleted ? null : currentState.editingItem,
+        value: editingItemDeleted ? "" : currentState.value
+      };
+    }
+
+    case "SELECT_ALL_BUTTON_CLICKED": {
+      if (currentState.items.length === currentState.markedIds.length) {
+        return {
+          ...currentState,
+          markedIds: []
+        };
+      }
+
+      return {
+        ...currentState,
+        markedIds: currentState.items.map((item) => item.id)
+      };
+    }
+
+    case "DELETE_BUTTON_CLICKED": {
+      return {
+        ...currentState,
+        items: currentState.items.filter((_item) => _item.id !== event.item.id)
+      };
+    }
+
+    default: {
+      return currentState;
+    }
+  }
+}
 
 const App = () => {
-  const [items, setItems] = useState([]);
-  const [editingItem, setEditingItem] = useState();
-  const [value, setValue] = useState("");
-
-  function idGen() {
-    return Math.random() * 10000;
-  }
-
-  const clearValue = () => {
-    setValue('');
-  }
-
-  const clearEditingItem = () => {
-    setEditingItem(null);
-  }
-
-  const handleAddItem = (addValue) => {
-    setItems([
-      {
-        id: idGen(),
-        name: addValue,
-        isCompleted: false,
-      },
-      ...items,
-    ]);
-  };
-
-  const updateItem = (itemID, updateValue) => {
-    const itemIndex = items.findIndex(item => item.id === itemID);
-
-    if (itemIndex < 0) {
-      console.log('item not found');
-      return;
-    }
-  
-    const itemsCopy = [...items];
-    itemsCopy[itemIndex] = {...items[itemIndex], name: updateValue};
-    setItems(itemsCopy);
-    clearEditingItem();
-
-    console.log('itemID: ', itemID);
-    console.log('item index: ', itemIndex);
-    console.log('item copy: ', itemsCopy);
-    console.log('items: ', items);
-  };
-
-  const canUpdate = () => {
-
-    if (!items.length) {
-      return false;
-    }
-
-    if (items.length > 1) {
-      return false;
-    }
-
-    return true;
-  };
-
-  const handleChecked = (id) => {
-    const checkedItems = items.map((item) => {
-      return item.id === id
-        ? { ...item, isCompleted: !item.isCompleted }
-        : item;
-    });
-
-    setItems(checkedItems);
-    if (canUpdate() && checkedItems[0].isCompleted) {
-      setValue(checkedItems[0].name);
-      setEditingItem(checkedItems[0]);
-      return;
-    }
-
-    setValue('');
-    clearEditingItem();
-  };
-
-  const deleteCheckedItems = (id) => {
-    const newItems = items.filter(
-      (item) => (item.id !== id) & (item.isCompleted === false)
-    );
-
-    setItems(newItems);
-    clearEditingItem();
-    setValue('');
-  };
-
-  const deleteItem = (id) => {
-    const newItems = items.filter((item) => item.id !== id);
-    setItems(newItems);
-    clearEditingItem();
-    setValue('');
-  };
-
-  const onSubmit = () => {
-
-    console.log('value: ', value);
-    console.log('editingItem: ', editingItem);
-    console.log('items: ', items);
-    if (!value.length) {
-      return;
-    }
-
-    if (canUpdate()) {
-      updateItem(editingItem.id, value);
-    } else {
-      handleAddItem(value);
-    }
-
-    clearValue();
-  }
+  const [state, dispatch] = useReducer(appReducer, initialAppState);
 
   return (
     <div className="container">
-      {items.length === 0 ? (
-        <Head>
-          <title>Nenhum item adicionado</title>
-        </Head>
-      ) : items.length === 1 ? (
-        <Head>
-          <title>1 item</title>
-        </Head>
-      ) : (
-        <Head>
-          <title>{items.length} itens</title>
-        </Head>
-      )}
-
+      <Head>
+        <title>
+          {state.items.length === 0
+            ? "Nenhum item adicionado"
+            : state.items.length === 1
+            ? "1 item adicionado"
+            : `${state.items.length} itens adicionados`}
+        </title>
+      </Head>
       <h1>Lista de Compras</h1>
-      <input
-        type="text"
-        value={value}
-        className="item-input"
-        onKeyPress={(e) => e.key === "Enter" && onSubmit()}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="Não esqueça dos legumes..."
-      />
-      <br />
-      <div className="buttons">
-        <button onClick={onSubmit} className="add-button">
-          Adicionar item
-        </button>
-        <button onClick={deleteCheckedItems} className="delete-button">
-          Excluir itens marcados
-        </button>
-      </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          dispatch({ type: "SUBMITTED_FORM" });
+        }}
+      >
+        <input
+          type="text"
+          value={state.value}
+          className="item-input"
+          onChange={(e) =>
+            dispatch({
+              type: "VALUE_CHANGED",
+              value: e.target.value
+            })
+          }
+          placeholder="Não esqueça dos legumes..."
+        />
+        <br />
+        <div className="buttons">
+          <button type="submit" disabled={!state.value} className="add-button">
+            {state.editingItem ? "Atualizar" : "Adicionar"} item
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              dispatch({
+                type: "CLICKED_DELETE_ALL_BUTTON"
+              })
+            }
+            className="delete-button"
+          >
+            Excluir itens marcados
+          </button>
+          <button
+            className={
+              state.items.length > 0 &&
+              state.items.length === state.markedIds.length
+                ? "desmarcar"
+                : "selecionar"
+            }
+            type="button"
+            onClick={() =>
+              dispatch({
+                type: "SELECT_ALL_BUTTON_CLICKED"
+              })
+            }
+          >
+            {state.items.length > 0 &&
+            state.items.length === state.markedIds.length
+              ? "Desmarcar"
+              : "Selecionar"}{" "}
+            todos
+          </button>
+        </div>
+      </form>
       <div>
-        {items.map((item) => (
+        {state.items.map((item) => (
           <div className="item-list" key={item.id}>
             <span className="item-list-span">
-              <button type="checkbox" onClick={() => handleChecked(item.id)}>
-                {item.isCompleted === false ? (
-                  <AiOutlineCheckCircle size={23} className="check-button" />
-                ) : (
+              <button
+                type="button"
+                onClick={() =>
+                  dispatch({
+                    type: "CLICKED_CHECKBOX",
+                    item
+                  })
+                }
+              >
+                {state.markedIds.includes(item.id) ? (
                   <AiFillCheckCircle size={23} className="check-button" />
+                ) : (
+                  <AiOutlineCheckCircle size={23} className="check-button" />
                 )}
               </button>
 
-              {item.isCompleted === false ? (
-                <p>{item.name}</p>
-              ) : (
-                <p className="complete">{item.name}</p>
-              )}
+              <button
+                type="button"
+                onClick={() => {
+                  dispatch({
+                    type: "CLICKED_ITEM",
+                    item
+                  });
+                }}
+              >
+                {item.isCompleted === false ? (
+                  <p>{item.name}</p>
+                ) : (
+                  <p className="complete">{item.name}</p>
+                )}
+              </button>
             </span>
-            <FaTrash
-              style={{ cursor: "pointer" }}
-              onClick={() => deleteItem(item.id)}
-            />
+            <button
+              type="button"
+              onClick={() =>
+                dispatch({
+                  type: "DELETE_BUTTON_CLICKED",
+                  item
+                })
+              }
+            >
+              <FaTrash style={{ cursor: "pointer" }} />
+            </button>
           </div>
         ))}
       </div>
